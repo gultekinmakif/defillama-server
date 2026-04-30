@@ -26,14 +26,14 @@ const blacklistedAppCategorySet = new Set([
 const blacklistedAppIdSet = new Set([
   '4695', // bloXroute
 ])
-
 // Set-cardinality types, counts of distinct entities, are NOT additive across adaptors.
 // For these, chain rollup can NOT sum/concat per-protocol values.
 // Active/New User: per Chain + per Protocol => results in double-count.
 // Instead we can rely on the chain-level adapter count(DISTINCT) from raw txs.
-const SET_CARDINALITY_RECORD_TYPES = new Set<AdaptorRecordType>([
-  AdaptorRecordType.dailyActiveUsers,
-  AdaptorRecordType.dailyNewUsers,
+const isChainAdapter = (id?: string) => id?.startsWith('chain#') ?? false
+const SET_CARDINALITY_SOURCES = new Map<AdaptorRecordType, (id?: string) => boolean>([
+  [AdaptorRecordType.dailyActiveUsers, isChainAdapter],
+  [AdaptorRecordType.dailyNewUsers,    isChainAdapter],
 ])
 
 function getProtocolAppMetricsFlag(info: any) {
@@ -45,6 +45,7 @@ function getProtocolAppMetricsFlag(info: any) {
 }
 
 function getTimeData(moveADayBack = false) {
+
   const lastTimeString = getTimeSDaysAgo(0, moveADayBack)
   const dayBeforeLastTimeString = getTimeSDaysAgo(1, moveADayBack)
   const weekAgoTimeString = getTimeSDaysAgo(7, moveADayBack)
@@ -460,10 +461,10 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
             if (!chainSummary.earliestTimestamp || timestamp < chainSummary.earliestTimestamp)
               chainSummary.earliestTimestamp = timestamp
 
-            const isSetCardinality = SET_CARDINALITY_RECORD_TYPES.has(recordType)
-            if (isSetCardinality) {
+            const cardinalityFilter = SET_CARDINALITY_SOURCES.get(recordType)
+            if (cardinalityFilter) {
               // for counts of distinct values
-              if (protocolId?.startsWith('chain#')) chainSummary.chart[timeS] = value 
+              if (cardinalityFilter(protocolId)) chainSummary.chart[timeS] = value
             } else {
               // for counts of additive values
               chainSummary.chart[timeS] = (chainSummary.chart[timeS] ?? 0) + value
@@ -663,11 +664,10 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
     function addToSummary({ record, records = [], recordType, summaryKey, chainSummaryKey, protocolSummary, skipChainSummary = false, protocolLatestRecord, categories, debugParams, }: { records?: any[], recordType: AdaptorRecordType, summaryKey: string, chainSummaryKey?: string, record?: any, protocolSummary: any, skipChainSummary?: boolean, protocolLatestRecord?: any, categories?: Array<string>, debugParams?: any }) {
       // protocolLatestRecord ?? record is a hack to show latest data as protocol's 24h data but not use that record for computing chain/global summary
       if (protocolSummary) _addToSummary({ record: protocolLatestRecord ?? record, records, recordType, summaryKey, chainSummaryKey, summary: protocolSummary, debugParams, })
-      // For set-cardinality types only the chain adapter contributes to the chain rollup.
+      // For set-cardinality types (e.g. dailyActiveUsers) only the chain adapter contributes to the chain rollup.
       // For additive types, we need to skip updating summary because underlying child data is already used to update the summary
-      const isSetCardinality = SET_CARDINALITY_RECORD_TYPES.has(recordType)
-      const isChainAdapter = debugParams?.protocolId?.startsWith('chain#')
-      if (isSetCardinality ? isChainAdapter : !skipChainSummary) _addToSummary({ record, records, recordType, summaryKey, chainSummaryKey, debugParams })
+      const cardinalityFilter = SET_CARDINALITY_SOURCES.get(recordType)
+      if (cardinalityFilter ? cardinalityFilter(debugParams?.protocolId) : !skipChainSummary) _addToSummary({ record, records, recordType, summaryKey, chainSummaryKey, debugParams })
       // add to category summary
       if (categories && categories.length > 0) _addToCategorySummary({ record: protocolLatestRecord ?? record, records, categories, recordType, summaryKey })
     }
