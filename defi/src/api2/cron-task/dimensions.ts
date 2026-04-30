@@ -27,6 +27,15 @@ const blacklistedAppIdSet = new Set([
   '4695', // bloXroute
 ])
 
+// Set-cardinality types, counts of distinct entities, are NOT additive across adaptors.
+// For these, chain rollup can NOT sum/concat per-protocol values.
+// Active/New User: per Chain + per Protocol => results in double-count.
+// Instead we can rely on the chain-level adapter count(DISTINCT) from raw txs.
+const SET_CARDINALITY_RECORD_TYPES = new Set<AdaptorRecordType>([
+  AdaptorRecordType.dailyActiveUsers,
+  AdaptorRecordType.dailyNewUsers,
+])
+
 function getProtocolAppMetricsFlag(info: any) {
   if (info.protocolType && info.protocolType !== ProtocolType.PROTOCOL) return false
   if (info.category && blacklistedAppCategorySet.has(info.category!)) return false
@@ -36,7 +45,6 @@ function getProtocolAppMetricsFlag(info: any) {
 }
 
 function getTimeData(moveADayBack = false) {
-
   const lastTimeString = getTimeSDaysAgo(0, moveADayBack)
   const dayBeforeLastTimeString = getTimeSDaysAgo(1, moveADayBack)
   const weekAgoTimeString = getTimeSDaysAgo(7, moveADayBack)
@@ -452,7 +460,14 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
             if (!chainSummary.earliestTimestamp || timestamp < chainSummary.earliestTimestamp)
               chainSummary.earliestTimestamp = timestamp
 
-            chainSummary.chart[timeS] = (chainSummary.chart[timeS] ?? 0) + value
+            const isSetCardinality = SET_CARDINALITY_RECORD_TYPES.has(recordType)
+            if (isSetCardinality) {
+              // for counts of distinct values
+              if (protocolId?.startsWith('chain#')) chainSummary.chart[timeS] = value 
+            } else {
+              // for counts of additive values
+              chainSummary.chart[timeS] = (chainSummary.chart[timeS] ?? 0) + value
+            }
             if (!chainSummary.chartBreakdown[timeS]) chainSummary.chartBreakdown[timeS] = {}
             chainSummary.chartBreakdown[timeS][protocolName] = value
           })
@@ -648,11 +663,15 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
     function addToSummary({ record, records = [], recordType, summaryKey, chainSummaryKey, protocolSummary, skipChainSummary = false, protocolLatestRecord, categories, debugParams, }: { records?: any[], recordType: AdaptorRecordType, summaryKey: string, chainSummaryKey?: string, record?: any, protocolSummary: any, skipChainSummary?: boolean, protocolLatestRecord?: any, categories?: Array<string>, debugParams?: any }) {
       // protocolLatestRecord ?? record is a hack to show latest data as protocol's 24h data but not use that record for computing chain/global summary
       if (protocolSummary) _addToSummary({ record: protocolLatestRecord ?? record, records, recordType, summaryKey, chainSummaryKey, summary: protocolSummary, debugParams, })
-      // we need to skip updating summary because underlying child data is already used to update the summary
-      if (!skipChainSummary) _addToSummary({ record, records, recordType, summaryKey, chainSummaryKey, debugParams })
+      // For set-cardinality types only the chain adapter contributes to the chain rollup.
+      // For additive types, we need to skip updating summary because underlying child data is already used to update the summary
+      const isSetCardinality = SET_CARDINALITY_RECORD_TYPES.has(recordType)
+      const isChainAdapter = debugParams?.protocolId?.startsWith('chain#')
+      if (isSetCardinality ? isChainAdapter : !skipChainSummary) _addToSummary({ record, records, recordType, summaryKey, chainSummaryKey, debugParams })
       // add to category summary
       if (categories && categories.length > 0) _addToCategorySummary({ record: protocolLatestRecord ?? record, records, categories, recordType, summaryKey })
     }
+
     function _addToSummary({ record, records = [], recordType, summaryKey, chainSummaryKey, summary, debugParams }: { records?: any[], recordType: AdaptorRecordType, summaryKey: string, chainSummaryKey?: string, record?: any, summary?: any, debugParams?: any }) {
       if (!chainSummaryKey) chainSummaryKey = summaryKey
       if (record) records = [record]
