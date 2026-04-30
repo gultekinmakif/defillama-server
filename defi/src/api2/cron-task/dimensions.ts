@@ -26,17 +26,20 @@ const blacklistedAppCategorySet = new Set([
 const blacklistedAppIdSet = new Set([
   '4695', // bloXroute
 ])
+
 // Set-cardinality types, counts of distinct entities, are NOT additive across adaptors.
 // For these, chain rollup can NOT sum/concat per-protocol values.
 // Active/New User: per Chain + per Protocol => results in double-count.
-// Instead we can rely on the chain-level adapter count(DISTINCT) from raw txs.
-const isChainAdapter = (id?: string) => id?.startsWith('chain#') ?? false
-const SET_CARDINALITY_SOURCES = new Map<AdaptorRecordType, (id?: string) => boolean>([
+// Instead we can rely on the chain-level adapter count(DISTINCT) from raw txs,
+// or any info provided by ProtocolAdaptor type
+type CardinalityFilter = (info?: ProtocolAdaptor) => boolean
+const isChainAdapter: CardinalityFilter = (info) => info?.defillamaId?.startsWith('chain#') ?? false
+const SET_CARDINALITY_SOURCES = new Map<AdaptorRecordType, CardinalityFilter>([
   [AdaptorRecordType.dailyActiveUsers, isChainAdapter],
   [AdaptorRecordType.dailyNewUsers,    isChainAdapter],
 ])
 
-function getProtocolAppMetricsFlag(info: any) {
+function getProtocolAppMetricsFlag(info: ProtocolAdaptor) {
   if (info.protocolType && info.protocolType !== ProtocolType.PROTOCOL) return false
   if (info.category && blacklistedAppCategorySet.has(info.category!)) return false
   let id = info.id2 ?? info.id
@@ -464,7 +467,7 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
             const cardinalityFilter = SET_CARDINALITY_SOURCES.get(recordType)
             if (cardinalityFilter) {
               // for counts of distinct values
-              if (cardinalityFilter(protocolId)) chainSummary.chart[timeS] = value
+              if (cardinalityFilter(protocol.info)) chainSummary.chart[timeS] = value
             } else {
               // for counts of additive values
               chainSummary.chart[timeS] = (chainSummary.chart[timeS] ?? 0) + value
@@ -498,18 +501,17 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
         if (recordType === AdaptorRecordType.dailyAppFees) recordLabel = AdaptorRecordType.dailyFees
         if (recordType === AdaptorRecordType.dailyAppRevenue) recordLabel = AdaptorRecordType.dailyRevenue
 
-        const debugParams = { protocolId, }
         const categoriesParam = (!isParentProtocol && protocol.info.protocolType !== ProtocolType.CHAIN) ? _pCategories : undefined
-        addToSummary({ record: todayRecord?.aggObject[recordLabel], summaryKey: 'total24h', recordType, protocolSummary, skipChainSummary, protocolLatestRecord: protocolLatestRecord?.aggObject[recordLabel], categories: categoriesParam, debugParams, })
-        addToSummary({ record: yesterdayRecord?.aggObject[recordLabel], summaryKey: 'total48hto24h', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, debugParams, })
-        addToSummary({ record: _protocolData.sevenDaysAgo?.aggObject[recordType], summaryKey: 'total7DaysAgo', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, debugParams, })
-        addToSummary({ record: _protocolData.thirtyDaysAgo?.aggObject[recordType], summaryKey: 'total30DaysAgo', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, debugParams, })
-        addToSummary({ records: _protocolData.lastWeekData, summaryKey: 'total7d', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, debugParams, })
-        // addToSummary({ records: _protocolData.lastTwoWeekData, summaryKey: 'total14d', recordType, protocolSummary, skipChainSummary, debugParams, })
-        addToSummary({ records: _protocolData.lastTwoWeekToOneWeekData, summaryKey: 'total14dto7d', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, debugParams, })
-        addToSummary({ records: _protocolData.last30DaysData, summaryKey: 'total30d', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, debugParams, })
-        addToSummary({ records: _protocolData.last60to30DaysData, summaryKey: 'total60dto30d', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, debugParams, })
-        addToSummary({ records: _protocolData.lastOneYearData, summaryKey: 'total1y', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, debugParams, })
+        addToSummary({ record: todayRecord?.aggObject[recordLabel], summaryKey: 'total24h', recordType, protocolSummary, skipChainSummary, protocolLatestRecord: protocolLatestRecord?.aggObject[recordLabel], categories: categoriesParam, info: protocol.info, })
+        addToSummary({ record: yesterdayRecord?.aggObject[recordLabel], summaryKey: 'total48hto24h', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, info: protocol.info, })
+        addToSummary({ record: _protocolData.sevenDaysAgo?.aggObject[recordType], summaryKey: 'total7DaysAgo', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, info: protocol.info, })
+        addToSummary({ record: _protocolData.thirtyDaysAgo?.aggObject[recordType], summaryKey: 'total30DaysAgo', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, info: protocol.info, })
+        addToSummary({ records: _protocolData.lastWeekData, summaryKey: 'total7d', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, info: protocol.info, })
+        // addToSummary({ records: _protocolData.lastTwoWeekData, summaryKey: 'total14d', recordType, protocolSummary, skipChainSummary, })
+        addToSummary({ records: _protocolData.lastTwoWeekToOneWeekData, summaryKey: 'total14dto7d', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, info: protocol.info, })
+        addToSummary({ records: _protocolData.last30DaysData, summaryKey: 'total30d', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, info: protocol.info, })
+        addToSummary({ records: _protocolData.last60to30DaysData, summaryKey: 'total60dto30d', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, info: protocol.info, })
+        addToSummary({ records: _protocolData.lastOneYearData, summaryKey: 'total1y', recordType, protocolSummary, skipChainSummary, categories: categoriesParam, info: protocol.info, })
 
         // add record count
         const allKeys = Object.keys(protocol.records)
@@ -661,18 +663,18 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
       }
     }
 
-    function addToSummary({ record, records = [], recordType, summaryKey, chainSummaryKey, protocolSummary, skipChainSummary = false, protocolLatestRecord, categories, debugParams, }: { records?: any[], recordType: AdaptorRecordType, summaryKey: string, chainSummaryKey?: string, record?: any, protocolSummary: any, skipChainSummary?: boolean, protocolLatestRecord?: any, categories?: Array<string>, debugParams?: any }) {
+    function addToSummary({ record, records = [], recordType, summaryKey, chainSummaryKey, protocolSummary, skipChainSummary = false, protocolLatestRecord, categories, info, }: { records?: any[], recordType: AdaptorRecordType, summaryKey: string, chainSummaryKey?: string, record?: any, protocolSummary: any, skipChainSummary?: boolean, protocolLatestRecord?: any, categories?: Array<string>, info?: any }) {
       // protocolLatestRecord ?? record is a hack to show latest data as protocol's 24h data but not use that record for computing chain/global summary
-      if (protocolSummary) _addToSummary({ record: protocolLatestRecord ?? record, records, recordType, summaryKey, chainSummaryKey, summary: protocolSummary, debugParams, })
+      if (protocolSummary) _addToSummary({ record: protocolLatestRecord ?? record, records, recordType, summaryKey, chainSummaryKey, summary: protocolSummary, })
       // For set-cardinality types (e.g. dailyActiveUsers) only the chain adapter contributes to the chain rollup.
       // For additive types, we need to skip updating summary because underlying child data is already used to update the summary
       const cardinalityFilter = SET_CARDINALITY_SOURCES.get(recordType)
-      if (cardinalityFilter ? cardinalityFilter(debugParams?.protocolId) : !skipChainSummary) _addToSummary({ record, records, recordType, summaryKey, chainSummaryKey, debugParams })
+      if (cardinalityFilter ? cardinalityFilter(info) : !skipChainSummary) _addToSummary({ record, records, recordType, summaryKey, chainSummaryKey })
       // add to category summary
       if (categories && categories.length > 0) _addToCategorySummary({ record: protocolLatestRecord ?? record, records, categories, recordType, summaryKey })
     }
 
-    function _addToSummary({ record, records = [], recordType, summaryKey, chainSummaryKey, summary, debugParams }: { records?: any[], recordType: AdaptorRecordType, summaryKey: string, chainSummaryKey?: string, record?: any, summary?: any, debugParams?: any }) {
+    function _addToSummary({ record, records = [], recordType, summaryKey, chainSummaryKey, summary }: { records?: any[], recordType: AdaptorRecordType, summaryKey: string, chainSummaryKey?: string, record?: any, summary?: any }) {
       if (!chainSummaryKey) chainSummaryKey = summaryKey
       if (record) records = [record]
       if (!records?.length) return;
@@ -685,7 +687,7 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
       records.forEach(({ value, chains }: { value: number, chains: IJSON<number> }) => {
         // if (!value) return;
         if (typeof value !== 'number') {
-          console.log(value, chains, recordType, summaryKey, adapterType, debugParams?.protocolId, 'value is not a number')
+          console.log(value, chains, recordType, summaryKey, adapterType, 'value is not a number')
           return;
         }
         summary[summaryKey] = (summary[summaryKey] ?? 0) + value
