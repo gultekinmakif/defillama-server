@@ -381,8 +381,13 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
               summary.chartBreakdown[timeS] = {}
             }
 
-            summary.chart[timeS] += value
-            summary.chartBreakdown[timeS][protocolName] = value
+            const globalCardinalityFilter = SET_CARDINALITY_SOURCES.get(recordType)
+            if (!globalCardinalityFilter || globalCardinalityFilter(protocol.info)) {
+              // additive types: every protocol contributes
+              // set-cardinality types: only chain-adapter contributes
+              summary.chart[timeS] += value
+              summary.chartBreakdown[timeS][protocolName] = value
+            }
           }
 
           if (timestamp > protocolRecord.latestTimestamp) {
