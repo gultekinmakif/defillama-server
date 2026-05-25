@@ -6050,7 +6050,7 @@ const data5: Protocol[] = [
     url: "https://grvty.dev",
     description: "Liquid staking protocol for TAC blockchain.",
     chain: "TAC",
-    logo: `${baseIconsUrl}/gravity.jpg`,
+    logo: `${baseIconsUrl}/gravity.svg`,
     audits: "2",
     gecko_id: null,
     cmcId: null,
