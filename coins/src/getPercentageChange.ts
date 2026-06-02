@@ -99,7 +99,7 @@ function calcPercentages(
     const timeChangeRequested = timestamps[1] - timestamps[0];
 
     const requestedActualRatio = Math.abs(
-      timeChangeActual - timeChangeRequested / timeChangeRequested,
+      (timeChangeActual - timeChangeRequested) / timeChangeRequested,
     );
 
     const percentageChange =
