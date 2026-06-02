@@ -40,7 +40,7 @@ export default function setRoutes(router: HyperExpress.Router, routerBasePath: s
   })));
   router.get("/treasury/:name", ew(async (req: any, res: any) => getProtocolishData(req, res, { dataType: 'treasury' })));
   router.get("/entity/:name", ew(async (req: any, res: any) => getProtocolishData(req, res, { dataType: 'entities' })));
-  router.get("/updatedProtocol/:name", (async (req, res) => getProtocolishData(req, res, {
+  router.get("/updatedProtocol/:name", ew(async (req: any, res: any) => getProtocolishData(req, res, {
     dataType: 'protocol', skipAggregatedTvl: req.query_parameters.includeAggregatedTvl !== 'true',
     restrictResponseSize: req.query_parameters.restrictResponseSize !== 'false',
   })));
@@ -97,7 +97,7 @@ export default function setRoutes(router: HyperExpress.Router, routerBasePath: s
   router.get("/emissionsBreakdown", r2Wrapper({ endpoint: 'emissionsBreakdown' }))
   router.get("/emissionsBreakdownAggregated", r2Wrapper({ endpoint: 'emissionsBreakdownAggregated' }))
   router.get("/emissionsSupplyMetrics", r2Wrapper({ endpoint: 'emissionsSupplyMetrics' }))
-  router.get("/emission/:name", emissionProtocolHandler)
+  router.get("/emission/:name", ew(emissionProtocolHandler))
 
   router.get("/chainAssets", r2Wrapper({ endpoint: 'chainAssets' }));
   router.get("/chain-assets/chains", r2Wrapper({ endpoint: 'chainAssets' }));
@@ -128,7 +128,7 @@ export default function setRoutes(router: HyperExpress.Router, routerBasePath: s
   })));
   router.get("/_fe/treasury-mini/:name", ew(async (req: any, res: any) => getProtocolishData(req, res, { dataType: 'treasury', feMini: true, })));
   router.get("/_fe/entity-mini/:name", ew(async (req: any, res: any) => getProtocolishData(req, res, { dataType: 'entities', feMini: true, })));
-  router.get("/_fe/updatedProtocol-mini/:name", (async (req, res) => getProtocolishData(req, res, {
+  router.get("/_fe/updatedProtocol-mini/:name", ew(async (req: any, res: any) => getProtocolishData(req, res, {
     dataType: 'protocol', skipAggregatedTvl: req.query_parameters.includeAggregatedTvl !== 'true',
     restrictResponseSize: false, feMini: true,
   })));
