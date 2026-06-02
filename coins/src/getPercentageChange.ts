@@ -92,7 +92,7 @@ function calcPercentages(
   Object.keys(response).map((c) => {
     const data = response[c].prices;
     if (data.length != 2) return new Error(`unavailable for this time period`);
-    data.sort((a: any, b: any) => a.timestamp < b.timestamp);
+    data.sort((a: any, b: any) => a.timestamp - b.timestamp);
     const [{ price: p0, timestamp: t0 }, { price: p1, timestamp: t1 }] = data;
     const priceChange = p1 - p0;
     const timeChangeActual = lookForward ? t1 - t0 : t0 - t1;
