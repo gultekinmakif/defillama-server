@@ -94,11 +94,12 @@ async function getBlock(
   if (await isFaultyBlock(block, chain)) {
     provider.rpcs = provider.rpcs.slice(Math.max(provider.rpcs.length - 3, 1));
     let block = await provider.getBlock(height);
-    if (await isFaultyBlock(block, chain))
+    if (await isFaultyBlock(block, chain)) {
       await sendMessage(`Can't get block of chain ${chain} at height "${height}`, process.env.STALE_COINS_ADAPTERS_WEBHOOK!);
       return errorResponse({
         message: `Can't get block of chain ${chain} at height "${height}"`,
       });
+    }
   }
 
   await ddb.put({
